@@ -1,9 +1,7 @@
 import java.sql.*;
-import java.time.Year;
 
 import javafx.application.Application;
 import javafx.geometry.Insets;
-import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
@@ -15,13 +13,9 @@ import javafx.scene.control.TextField;
 
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.FlowPane;
-
-import javafx.scene.layout.Pane;
-import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.stage.Stage;
 
-import static javafx.application.Application.launch;
 
 
 public class Main extends Application{
@@ -141,22 +135,30 @@ public class Main extends Application{
             String yearInput = yearTextField.getText().trim();
             String semesterInput = semesterTextField.getText().trim();
             String gpaInput = gpaTextField.getText().trim();
+            System.out.println(courseTitleInput);
 
-//            if (inputText.matches("[1-9]|1[0-9]|2[0-6]")) {
-//
-//                int n = Integer.parseInt(inputText);
-//                chart.draw(gc,n,width,height);
-//
-//            } else {
-//
-//                Alert alert = new Alert(Alert.AlertType.WARNING, "Enter a number from 1 to 26.");
-//                alert.setHeaderText("Invalid input");
-//                alert.show();
-//            }
+            if (studentIdInput.matches("\\d+") && courseIdInput.matches("\\d+")
+                    && semesterInput.matches("[a-zA-Z]+")
+                    && nameInput.matches("[A-Za-z]+")
+                    && lastNameInput.matches("[a-zA-Z]+")
+                    && courseTitleInput.matches("[a-zA-Z]+")
+                    && departmentInput.matches("[a-zA-Z]+")
+                    && yearInput.matches("\\d+")
+                    && gpaInput.matches("[A|B|C|D|E|F]") && sexInput.matches("[F|M|f|m]")){
 
-            Main.insertInStudent(conn,nameInput, lastNameInput, sexInput,courseTitleInput,
-                    departmentInput,Integer.parseInt(studentIdInput),Integer.parseInt(yearInput),
-                    semesterInput, gpaInput, Integer.parseInt(courseIdInput));
+                Main.insertInStudent(conn,nameInput, lastNameInput, sexInput,courseTitleInput,
+                        departmentInput,Integer.parseInt(studentIdInput),Integer.parseInt(yearInput),
+                        semesterInput, gpaInput, Integer.parseInt(courseIdInput));
+
+
+
+            } else {
+
+                Alert alert = new Alert(Alert.AlertType.WARNING, "Check your input");
+                alert.setHeaderText("Invalid input");
+                alert.show();
+            }
+
 
         });
 
@@ -237,6 +239,8 @@ public class Main extends Application{
         String currentSemester = semester;
         String studentGpa = gpa;
 
+        int i = 0;
+
         try {
             conn  = null;
 
@@ -246,36 +250,43 @@ public class Main extends Application{
 
             if (conn != null) {
                 System.out.println("We have connected to our database");
+                
 
-                Statement stmt = conn.createStatement();
-                boolean result = stmt.execute("CREATE TABLE IF NOT EXISTS Students " + "(StudentID INT UNSIGNED NOT NULL, " +
+                PreparedStatement create = conn.prepareStatement("CREATE TABLE IF NOT EXISTS Students " + "(StudentID INT UNSIGNED NOT NULL, " +
                         " PRIMARY KEY (StudentID), firstName varchar(255), " + "lastName varchar(255), sex varchar(255))");
+                create.executeUpdate();
+
+                PreparedStatement create3 = conn.prepareStatement("CREATE TABLE IF NOT EXISTS Courses" + "(courseID INT UNSIGNED NOT NULL, " +
+                        " PRIMARY KEY (courseID), courseTitle varchar(255)," + "department varchar(255), uniqueID INT UNSIGNED NOT NULL)");
+                create3.executeUpdate();
+
+                Statement stmt = conn.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_UPDATABLE);
+                stmt.executeUpdate("INSERT  INTO Students " + "(StudentID,firstName,lastName,sex) " +
+                        "VALUES ('"+sID+"','"+studentName+"', '"+studentLast+"','"+studentSex+"')");
+
+                Statement getUniqueID = conn.createStatement();
+                ResultSet rSet = getUniqueID.executeQuery("SELECT StudentID FROM Students");
+                while(rSet.next()) {
+                    i = rSet.getInt("StudentID");
+                }
+                i++;
+
                 Statement stmt2 = conn.createStatement();
-                stmt2.execute("CREATE TABLE IF NOT EXISTS Courses" + "(courseID INT UNSIGNED NOT NULL, " +
-                        " PRIMARY KEY (courseID), courseTitle varchar(255)," + "department varchar(255))");
+                stmt2.executeUpdate("INSERT INTO Courses" + "(courseID,courseTitle,department,uniqueID) " +
+                        "VALUES ('"+courId+"','"+courseTitle+"', '"+dept+"','"+i+"')");
 
-                System.out.println("\tTable creation result: " + result);
-                //Main.showColumns(conn);
-                Statement stmt3 = conn.createStatement(ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_UPDATABLE);
-                int rowCount = stmt3.executeUpdate("INSERT  INTO Students " +
-                        "(StudentID,firstName,lastName,sex) VALUES ('"+sID+"','"+studentName+"', '"+studentLast+"','"+studentSex+"')");
-                //Main.showValues(conn);
-
-                Statement stmt4 = conn.createStatement();
-                stmt4.executeUpdate("INSERT INTO Courses" + "(courseID,courseTitle,department) VALUES ('"+courId+"','"+courseTitle+"', '"+dept+"')");
-
-                PreparedStatement create = conn.prepareStatement("CREATE TABLE IF NOT EXISTS Classes(classCode INT UNSIGNED NOT NULL AUTO_INCREMENT, " +
+                PreparedStatement create2 = conn.prepareStatement("CREATE TABLE IF NOT EXISTS Classes(classCode INT UNSIGNED NOT NULL AUTO_INCREMENT, " +
                         "PRIMARY KEY (classCode),courseID INT UNSIGNED NOT NULL, StudentID INT UNSIGNED NOT NULL,  " +
                         "Year INT UNSIGNED NOT NULL, semester varchar(255), GPA CHAR(1)," +
                         "FOREIGN KEY(StudentID) REFERENCES Students(StudentID)," +
                         "FOREIGN KEY(courseID) REFERENCES Courses(courseID))");
-                create.executeUpdate();
+                create2.executeUpdate();
 
-                System.out.println("I'm here");
 
-                create.executeUpdate("INSERT INTO Classes" +
+
+                create2.executeUpdate("INSERT INTO Classes" +
                         "(courseID, StudentID, Year, semester, GPA ) " +
-                        "VALUES ((SELECT courseID FROM Courses WHERE courseTitle = '"+courseTitle+"' && department = '"+dept+"')," +
+                        "VALUES ((SELECT courseID FROM Courses WHERE courseTitle = '"+courseTitle+"' && department = '"+dept+"' && uniqueID = '"+i+"')," +
                         "(SELECT StudentID FROM Students WHERE firstName = '"+studentName+"'),'"+theYear+"','"+currentSemester+"','"+studentGpa+"') ");
                 totalGpa = Main.showValues(conn);
 
